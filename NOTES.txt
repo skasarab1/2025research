@@ -1,0 +1,10 @@
+Use known data for EL bus loca data set and the BUS ID's locations.
+
+Create clusters using the known and unknown latitude and longitudes using the psse data
+
+PSSE_Lines is a spread sheet on the excel file and has all the connections from BUS to BUS
+
+go line by line take the unknown substation
+look for nearest known substation and take the substation latitude and longitude bus id and name from the EL bus loca data set
+
+add it to the result excel file and look for it.
