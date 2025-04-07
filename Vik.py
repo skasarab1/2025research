@@ -39,6 +39,7 @@ for idx, row in Unknown.iterrows():
     BusNum = row['Bus  Number'] #Bus Number from Unknown Data set
     BusName = row['Bus  Name'] #Bus Name from Unknown Data set
 
+    #sees all rows where the bus number matches is from or to
     MatchingRows = PSSE_Lines[
         (PSSE_Lines['From Bus  Number'] == BusNum) |
         (PSSE_Lines['To Bus  Number'] == BusNum)
@@ -55,14 +56,18 @@ for idx, row in Unknown.iterrows():
         
     NumConnections = len(set(ConnectedBuses)) # Number of Connections
 
-    if ConnectedBuses:
-        target_bus_num = ConnectedBuses[0] #first row 
-        Unknown.at[idx, 'Closest Name'] = get_bus_name(target_bus_num,PSSE_Data)
+    #check to see if the connected bus is known or unknown filter it out
+    
+
+    for target_bus_num in ConnectedBuses:
         match = Bus_Loc[Bus_Loc['BusNumber'] == target_bus_num]
 
         if not match.empty:
+            Unknown.at[idx, 'Closest Name'] = get_bus_name(target_bus_num, PSSE_Data)
             Unknown.at[idx, 'Closest Lat'] = match.iloc[0]['Lat']
             Unknown.at[idx, 'Closest Lon'] = match.iloc[0]['Long']
+        break  # Stop after the first valid match is found
+
 
 
 Unknown.to_excel('help.xlsx')
