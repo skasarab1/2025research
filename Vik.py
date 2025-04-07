@@ -14,9 +14,6 @@ Bus_Loc = pd.read_excel(Bus_Locations)
 ISONE = pd.read_excel(ISOne)
 Unknown = pd.read_excel(UNKNOWN)
 
-#Filter kVs
-Unknown = Unknown[(Unknown['Base kV'] >= 69) & (Unknown['Base kV'] <= 999)]
-
 Unknown['Closest Name'] = None
 Unknown['Closest Lat'] = None
 Unknown['Closest Lon'] = None
@@ -66,8 +63,38 @@ for idx, row in Unknown.iterrows():
             Unknown.at[idx, 'Closest Name'] = get_bus_name(target_bus_num, PSSE_Data)
             Unknown.at[idx, 'Closest Lat'] = match.iloc[0]['Lat']
             Unknown.at[idx, 'Closest Lon'] = match.iloc[0]['Long']
-        break  # Stop after the first valid match is found
+            Unknown.at[idx, 'N Levels'] = 1
+            break
+        
+        #N Level 2
+        BusNum2 = target_bus_num
+        BusName2 = row['Bus  Name'] #Bus Name from Unknown Data set
 
+         #sees all rows where the bus number matches is from or to
+        MatchingRows2 = PSSE_Lines[
+                (PSSE_Lines['From Bus  Number'] == BusNum2) |
+                (PSSE_Lines['To Bus  Number'] == BusNum2)
+                 ]
+
+        ConnectedBuses2 = [] #empty data set for found buses
+
+        for i, line2 in MatchingRows2.iterrows():
+
+            if line2['From Bus  Number'] == BusNum2:
+                ConnectedBuses2.append(line2['To Bus  Number'])
+            else:
+                ConnectedBuses2.append(line2['From Bus  Number'])
+
+        for target_bus_num2 in ConnectedBuses2:
+            match2 = Bus_Loc[Bus_Loc['BusNumber'] == target_bus_num2]
+
+            if not match2.empty:
+                Unknown.at[idx, 'Closest Name'] = get_bus_name(target_bus_num2, PSSE_Data)
+                Unknown.at[idx, 'Closest Lat'] = match2.iloc[0]['Lat']
+                Unknown.at[idx, 'Closest Lon'] = match2.iloc[0]['Long']
+                Unknown.at[idx, 'N Levels'] = 2
+
+                break
 
 
 Unknown.to_excel('help.xlsx')
