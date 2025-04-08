@@ -7,99 +7,118 @@ ISOne = 'ISONE.xlsx'
 NYISO = 'NYISO.xlsx'
 UNKNOWN = 'TOBEFILLED.xlsx'
 
-#Read Files
+# Read files
 PSSE_Lines = pd.read_excel(PSSE_Data, sheet_name='PSSE_Lines')
 PSSE_Data = pd.read_excel(PSSE_Data, sheet_name='PSSE_Buses')
 Bus_Loc = pd.read_excel(Bus_Locations)
 ISONE = pd.read_excel(ISOne)
 Unknown = pd.read_excel(UNKNOWN)
 
+# Initialize new columns
 Unknown['Closest Name'] = None
 Unknown['Closest Lat'] = None
 Unknown['Closest Lon'] = None
 Unknown['N Levels'] = None
+Unknown['Same Bus?'] = None
 
-#Bus Name from Bus Number
+Unknown = Unknown[Unknown['Base kV']>= 69]
+
+
 def get_bus_name(bus_number, psse_df):
-    # Look for the bus number in either From or To columns
-    match = psse_df[
-        (psse_df['Bus  Number'] == bus_number)
-    ]
-
+    match = psse_df[psse_df['Bus  Number'] == bus_number]
     if not match.empty:
-        # Return the matching name based on which side the number was found
-        row = match.iloc[0]
-        if row['Bus  Number'] == bus_number:
-            return row['Bus  Name']
+        return match.iloc[0]['Bus  Name']
+    return None
 
+# Loop through each unknown bus
 for idx, row in Unknown.iterrows():
-    BusNum = row['Bus  Number'] #Bus Number from Unknown Data set
-    BusName = row['Bus  Name'] #Bus Name from Unknown Data set
+    BusNum = row['Bus  Number']
 
-    #sees all rows where the bus number matches is from or to
+    # Get directly connected buses (level 1)
     MatchingRows = PSSE_Lines[
         (PSSE_Lines['From Bus  Number'] == BusNum) |
         (PSSE_Lines['To Bus  Number'] == BusNum)
     ]
 
-    ConnectedBuses = [] #empty data set for found buses
-
-    for _, line in MatchingRows.iterrows():
-
-        if line['From Bus  Number'] == BusNum:
-            ConnectedBuses.append(line['To Bus  Number'])
-        else:
-            ConnectedBuses.append(line['From Bus  Number'])
-        
-    NumConnections = len(set(ConnectedBuses)) # Number of Connections
-
-    #check to see if the connected bus is known or unknown filter it out
+    ConnectedBuses = []
     
+    for _, line in MatchingRows.iterrows():
+        if line['From Bus  Number'] == BusNum:
+            ConnectedBuses.append({
+            'BusNumber': line['To Bus  Number'],
+            'Reactance': line['Line X (pu)']
+            })
+        else:
+            ConnectedBuses.append({
+            'BusNumber': line['From Bus  Number'],
+            'Reactance': line['Line X (pu)']
+            })
 
-    for target_bus_num in ConnectedBuses:
+
+    # LEVEL 1 SEARCH
+    found = False
+    for conn in ConnectedBuses:
+
+        target_bus_num = conn['BusNumber']
+        reactance = conn['Reactance']
+
         match = Bus_Loc[Bus_Loc['BusNumber'] == target_bus_num]
-
-        if not match.empty:
-            Unknown.at[idx, 'Closest Name'] = get_bus_name(target_bus_num, PSSE_Data)
-            Unknown.at[idx, 'Closest Lat'] = match.iloc[0]['Lat']
-            Unknown.at[idx, 'Closest Lon'] = match.iloc[0]['Long']
-            Unknown.at[idx, 'N Levels'] = 1
-            break
         
-        #N Level 2
-        BusNum2 = target_bus_num
-        BusName2 = row['Bus  Name'] #Bus Name from Unknown Data set
+        if not match.empty:
 
-         #sees all rows where the bus number matches is from or to
-        MatchingRows2 = PSSE_Lines[
-                (PSSE_Lines['From Bus  Number'] == BusNum2) |
-                (PSSE_Lines['To Bus  Number'] == BusNum2)
-                 ]
-
-        ConnectedBuses2 = [] #empty data set for found buses
-
-        for i, line2 in MatchingRows2.iterrows():
-
-            if line2['From Bus  Number'] == BusNum2:
-                ConnectedBuses2.append(line2['To Bus  Number'])
-            else:
-                ConnectedBuses2.append(line2['From Bus  Number'])
-
-        for target_bus_num2 in ConnectedBuses2:
-            match2 = Bus_Loc[Bus_Loc['BusNumber'] == target_bus_num2]
-
-            if not match2.empty:
-                Unknown.at[idx, 'Closest Name'] = get_bus_name(target_bus_num2, PSSE_Data)
-                Unknown.at[idx, 'Closest Lat'] = match2.iloc[0]['Lat']
-                Unknown.at[idx, 'Closest Lon'] = match2.iloc[0]['Long']
-                Unknown.at[idx, 'N Levels'] = 2
-
+            if reactance <= .001 :
+                Unknown.at[idx, 'latitude'] = match.iloc[0]['Lat']
+                Unknown.at[idx,'longitude'] = match.iloc[0]['Long']
+                Unknown.at[idx, 'N Levels'] = 0
+                Unknown.at[idx, 'Closest Lat'] = 'X'
+                Unknown.at[idx, 'Closest Lon'] = 'X'
+                Unknown.at[idx, 'Closest Name'] = 'X'
+                Unknown.at[idx, 'Same Bus?'] = 'Yes'
+                found = True
                 break
 
+            else:
+                Unknown.at[idx, 'Closest Name'] = get_bus_name(target_bus_num, PSSE_Data)
+                Unknown.at[idx, 'Closest Lat'] = match.iloc[0]['Lat']
+                Unknown.at[idx, 'Closest Lon'] = match.iloc[0]['Long']
+                Unknown.at[idx, 'N Levels'] = 1
+                found = True
+                break
 
+    # LEVEL 2 SEARCH
+    if not found:
+        for conn in ConnectedBuses:
+            level1_bus = conn['BusNumber']
+
+            MatchingRows2 = PSSE_Lines[
+                (PSSE_Lines['From Bus  Number'] == level1_bus) |
+                (PSSE_Lines['To Bus  Number'] == level1_bus)
+            ]
+
+            ConnectedBuses2 = []
+            for _, line2 in MatchingRows2.iterrows():
+                if line2['From Bus  Number'] == level1_bus:
+                    ConnectedBuses2.append({
+                        'BusNumber': line2['To Bus  Number'],
+                    })
+                else:
+                    ConnectedBuses2.append({
+                        'BusNumber': line2['From Bus  Number'],
+                    })
+
+            for conn2 in ConnectedBuses2:
+                target_bus_num2 = conn2['BusNumber']
+                match2 = Bus_Loc[Bus_Loc['BusNumber'] == target_bus_num2]
+                if not match2.empty:
+                    Unknown.at[idx, 'Closest Name'] = get_bus_name(target_bus_num2, PSSE_Data)
+                    Unknown.at[idx, 'Closest Lat'] = match2.iloc[0]['Lat']
+                    Unknown.at[idx, 'Closest Lon'] = match2.iloc[0]['Long']
+                    Unknown.at[idx, 'N Levels'] = 2
+                    found = True
+                    break
+
+            if found:
+                break
+
+# Save results
 Unknown.to_excel('help.xlsx')
-    
-
-
-
-
