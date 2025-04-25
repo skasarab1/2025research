@@ -3,15 +3,12 @@ import pandas as pd
 # File paths
 PSSE_Data = 'In_PSSEData.xlsx'
 Bus_Locations = 'EI_Bus_loca.xlsx'
-ISOne = 'ISONE.xlsx'
-NYISO = 'NYISO.xlsx'
-UNKNOWN = 'TOBEFILLED.xlsx'
+UNKNOWN = 'Missing_Buses.xlsx'
 
 # Read files
 PSSE_Lines = pd.read_excel(PSSE_Data, sheet_name='PSSE_Lines')
 PSSE_Data = pd.read_excel(PSSE_Data, sheet_name='PSSE_Buses')
 Bus_Loc = pd.read_excel(Bus_Locations)
-ISONE = pd.read_excel(ISOne)
 Unknown = pd.read_excel(UNKNOWN)
 
 # Initialize new columns
@@ -20,8 +17,6 @@ Unknown['Closest Lat'] = None
 Unknown['Closest Lon'] = None
 Unknown['N Levels'] = None
 Unknown['Same Bus?'] = None
-
-Unknown = Unknown[Unknown['Base kV']>= 69]
 
 
 def get_bus_name(bus_number, psse_df):
@@ -67,8 +62,8 @@ for idx, row in Unknown.iterrows():
         if not match.empty:
 
             if reactance <= .001 :
-                Unknown.at[idx, 'latitude'] = match.iloc[0]['Lat']
-                Unknown.at[idx,'longitude'] = match.iloc[0]['Long']
+                Unknown.at[idx, 'Lat'] = match.iloc[0]['Lat']
+                Unknown.at[idx,'Long'] = match.iloc[0]['Long']
                 Unknown.at[idx, 'N Levels'] = 0
                 Unknown.at[idx, 'Closest Lat'] = 'X'
                 Unknown.at[idx, 'Closest Lon'] = 'X'
@@ -121,4 +116,5 @@ for idx, row in Unknown.iterrows():
                 break
 
 # Save results
-Unknown.to_excel('help.xlsx')
+
+Unknown.to_excel('Missing_Buses.xlsx')
