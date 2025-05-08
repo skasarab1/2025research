@@ -1,21 +1,17 @@
 import pandas as pd
 
 # Load files
-missing = pd.read_excel("Missing_Buses.xlsx")
-working = pd.read_excel("WorkingSet.xlsx")
+missing = pd.read_excel("missing_location.xlsx")
+working = pd.read_excel("Missing_Buses.xlsx")
 
-# Filter only valid lat/lon rows
-working = working[['Bus  Number', 'latitude', 'longitude']].dropna()
 
-# Create lookup dict
-coord_lookup = working.set_index('Bus  Number')[['latitude', 'longitude']].to_dict('index')
+working = working[['Bus Number', 'Lat', 'Long']].dropna()
+coord_lookup = working.set_index('Bus Number')[['Lat', 'Long']].to_dict('index')
 
-# Fill Lat and Lon where available
 for idx, row in missing.iterrows():
-    bus = row['Bus  Number']
+    bus = row['Bus Number']
     if bus in coord_lookup:
-        missing.at[idx, 'Lat'] = coord_lookup[bus]['latitude']
-        missing.at[idx, 'Long'] = coord_lookup[bus]['longitude']
+        missing.at[idx, 'Lat'] = coord_lookup[bus]['Lat']
+        missing.at[idx, 'Long'] = coord_lookup[bus]['Long']
 
-# Save back
-missing.to_excel("Missing_Buses.xlsx", index=False)
+missing.to_excel("missing_location.xlsx", index=False)

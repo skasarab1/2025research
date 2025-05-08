@@ -3,7 +3,7 @@ import pandas as pd
 # File paths
 PSSE_Data = 'In_PSSEData.xlsx'
 Bus_Locations = 'EI_Bus_loca.xlsx'
-UNKNOWN = 'Missing_Buses.xlsx'
+UNKNOWN = 'missing_location.xlsx'
 
 # Read files
 PSSE_Lines = pd.read_excel(PSSE_Data, sheet_name='PSSE_Lines')
@@ -12,6 +12,7 @@ Bus_Loc = pd.read_excel(Bus_Locations)
 Unknown = pd.read_excel(UNKNOWN)
 
 # Initialize new columns
+Unknown['Bus Name'] = None
 Unknown['Closest Name'] = None
 Unknown['Closest Lat'] = None
 Unknown['Closest Lon'] = None
@@ -27,7 +28,9 @@ def get_bus_name(bus_number, psse_df):
 
 # Loop through each unknown bus
 for idx, row in Unknown.iterrows():
-    BusNum = row['Bus  Number']
+    BusNum = row['Bus Number']
+
+    Unknown.at[idx, 'Bus Name'] = get_bus_name(BusNum, PSSE_Data)
 
     # Get directly connected buses (level 1)
     MatchingRows = PSSE_Lines[
@@ -116,6 +119,4 @@ for idx, row in Unknown.iterrows():
                 break
 
 # Save results
-
-
-Unknown.to_excel('Missing_Buses.xlsx')
+Unknown.to_excel('missing_location.xlsx')
