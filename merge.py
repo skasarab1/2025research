@@ -1,17 +1,28 @@
 import pandas as pd
 
-# Load files
-missing = pd.read_excel("missing_location.xlsx")
+current = pd.read_excel("Warren.xlsx")
 working = pd.read_excel("Missing_Buses.xlsx")
 
+current['Bus  Number'] = current['Bus  Number'].astype(str).str.strip()
+working['Bus  Number'] = working['Bus  Number'].astype(str).str.strip()
 
-working = working[['Bus Number', 'Lat', 'Long']].dropna()
-coord_lookup = working.set_index('Bus Number')[['Lat', 'Long']].to_dict('index')
+merged = pd.merge(working, current[['Bus  Number', 'Lat', 'Long']], on = 'Bus  Number', how = 'left')
 
-for idx, row in missing.iterrows():
-    bus = row['Bus Number']
-    if bus in coord_lookup:
-        missing.at[idx, 'Lat'] = coord_lookup[bus]['Lat']
-        missing.at[idx, 'Long'] = coord_lookup[bus]['Long']
+filled_count = merged['Lat'].notna().sum()
+empty_count = merged['Lat'].isna().sum()
 
-missing.to_excel("missing_location.xlsx", index=False)
+print(f"Filled bus locations: {filled_count}")
+print(f"Missing bus locations: {empty_count}")
+
+merged.toexcel('test.xlsx')
+
+
+
+
+
+
+
+    
+
+
+
