@@ -1,49 +1,64 @@
 import pandas as pd
 import re
 
-# Load both files
+# Load data
 missing = pd.read_excel("Missing_Buses.xlsx")
-planning = pd.read_excel("PlanningQueues.xlsx")
+withdrawn = pd.read_excel('NYISO-Interconnection-Queue.xlsx', sheet_name='Withdrawn')
+inservice = pd.read_excel('NYISO-Interconnection-Queue.xlsx', sheet_name='In Service')
+que = pd.read_excel('NYISO-Interconnection-Queue.xlsx', sheet_name='Interconnection Queue')
 
-# Normalize text
+# Normalize columns
 missing['Bus  Name'] = missing['Bus  Name'].astype(str).str.strip().str.upper()
-planning['Project ID'] = planning['Project ID'].astype(str).str.strip().str.upper()
-planning['Status'] = planning['Status'].astype(str).str.strip().str.upper()
-planning['Commercial Name'] = planning['Commercial Name'].astype(str).str.strip()
-planning['Fuel'] = planning['Fuel'].astype(str).str.strip()
 
-# Add new columns if not already present
-if 'Reasoning' not in missing.columns:
-    missing['Reasoning'] = ""
-if 'Real Name' not in missing.columns:
-    missing['Real Name'] = ""
+inservice['Queue Pos.'] = inservice['Queue Pos.'].astype(str).str.strip()
+inservice['Project Name'] = inservice['Project Name'].astype(str).str.strip()
+inservice['Fuel'] = inservice['Fuel'].astype(str).str.strip()
+inservice['Interconnection Point'] = inservice['Interconnection Point'].astype(str).str.strip()
 
-missing['Type'] = ""
-missing['Capacity'] = None
+withdrawn['Queue Pos.'] = withdrawn['Queue Pos.'].astype(str).str.strip()
+que['Queue Pos.'] = que['Queue Pos.'].astype(str).str.strip()
 
 
-# Match and apply logic
+# Ensure output columns exist
+for col in ['Reasoning', 'Real Name', 'Type', 'Capacity', 'POI', 'Lat', 'Long']:
+    if col not in missing.columns:
+        missing[col] = ""
+
+# Process matches
 for idx, row in missing.iterrows():
     bus_name = row['Bus  Name']
-
-    # Extract just the project ID portion (e.g. "AD2-210")
-    match_id = re.match(r'([A-Z]+\d*-\d+)', bus_name)
+    match_id = bus_name[2:5]  # extract 3 digits after first character
 
     if not match_id:
-        continue  # Skip if no match
+        continue
 
     project_id_prefix = match_id.group(1)
-    matches = planning[planning['Project ID'].str.startswith(project_id_prefix)]
 
+    # Check in-service
+    matches = inservice[inservice['Queue Pos.'] == project_id_prefix]
     if not matches.empty:
-        status = matches.iloc[0]['Status']
-        if status in ['WITHDRAWN', 'RETRACTED','SUSPENDED','CANCELED']:
-            continue
-        elif status in ['IN SERVICE','UNDER CONSTRUCTION' , 'Partially in Service - Under Construction' , 'Engineering and Procurement' , 'Under Construction']:
-            missing.at[idx, 'Reasoning'] = 'In Service'
-            missing.at[idx, 'Real Name'] = matches.iloc[0]['Commercial Name']
-            missing.at[idx, 'Type'] = matches.iloc[0]['Fuel']
-            missing.at[idx, 'Capacity'] = matches.iloc[0]['MW In Service']
+        missing.at[idx, 'Reasoning'] = 'In Service'
+        missing.at[idx, 'Real Name'] = matches.iloc[0]['Project Name']
+        missing.at[idx, 'Type'] = matches.iloc[0]['Fuel']
+        missing.at[idx, 'Capacity'] = matches.iloc[0]['SP(MW)']
+        missing.at[idx, 'POI'] = matches.iloc[0]['Interconnection Point']
+        continue
 
-# Save the updated file
-missing.to_excel("Missing_Buses.xlsx", index=False)
+    # Check in queue
+    matches = que[que['Queue Pos.'] == project_id_prefix]
+    if not matches.empty:
+        missing.at[idx, 'Reasoning'] = 'In Queue'
+        missing.at[idx, 'Real Name'] = matches.iloc[0]['Project Name']
+        missing.at[idx, 'Type'] = matches.iloc[0]['Type/ Fuel']
+        missing.at[idx, 'Capacity'] = matches.iloc[0]['SP (MW)']
+        continue
+
+    # Check withdrawn
+    matches = withdrawn[withdrawn['Queue Pos.'] == project_id_prefix]
+    if not matches.empty:
+        missing.at[idx, 'Reasoning'] = 'Withdrawn'
+        missing.at[idx, 'Lat'] = 'X'
+        missing.at[idx, 'Long'] = 'X'
+
+# Save results
+missing.to_excel("test.xlsx", index=False)
