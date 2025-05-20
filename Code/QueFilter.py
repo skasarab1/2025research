@@ -27,7 +27,7 @@ for col in ['Reasoning', 'Real Name', 'Type', 'Capacity', 'POI', 'Lat', 'Long']:
 # Process matches
 for idx, row in missing.iterrows():
     bus_name = row['Bus  Name']
-    match_id = bus_name[2:5]  # extract 3 digits after first character
+    match_id = re.match(r'^.(\d{3})', bus_name)  # extract 3 digits after first character
 
     if not match_id:
         continue
@@ -40,7 +40,7 @@ for idx, row in missing.iterrows():
         missing.at[idx, 'Reasoning'] = 'In Service'
         missing.at[idx, 'Real Name'] = matches.iloc[0]['Project Name']
         missing.at[idx, 'Type'] = matches.iloc[0]['Fuel']
-        missing.at[idx, 'Capacity'] = matches.iloc[0]['SP(MW)']
+        missing.at[idx, 'Capacity'] = matches.iloc[0]['SP (MW)']
         missing.at[idx, 'POI'] = matches.iloc[0]['Interconnection Point']
         continue
 
